@@ -1,5 +1,8 @@
 
 <img width="1024" height="1024" alt="Gemini_Generated_Image_fftijlfftijlffti" src="https://github.com/user-attachments/assets/b9d7f791-4d3e-4b2c-ae22-7a78bf51ea65" />
+
+
+
 # Phase 0 – Foundations  
 ## The Absolute Bare-Metal Series
 
