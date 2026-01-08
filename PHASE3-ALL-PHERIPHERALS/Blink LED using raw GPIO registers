@@ -1,0 +1,30 @@
+#include "stm32f10x.h"
+
+
+
+
+int main(){
+	
+int volatile counter = 50000;
+
+RCC->APB2ENR |= (1<<2);
+RCC->APB2ENR |= (1<<4);
+	
+GPIOA->CRL &= ~((uint32_t)0xFF<<24);
+GPIOC->CRH &= ~((uint32_t)0xF<<20);
+	
+GPIOA->CRL |= ((1<<24)|(1<<28));
+GPIOC->CRH |= (1<<20);
+
+while(1){
+
+	GPIOA->ODR ^= ((1<<6)|(1<<7)|(1<<13));
+
+	while(counter > 0){
+		counter--;
+}
+	
+}
+
+}
+
