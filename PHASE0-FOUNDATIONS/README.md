@@ -3,277 +3,71 @@
 
 
 
-# Phase 0 – Foundations  
-## The Absolute Bare-Metal Series
+# ⚡ Absolute Bare Metal Series
+### *Mastering the Silicon: Register-Level STM32 Development*
 
-> **Goal:** Build a complete mental model of what really happens between *power-on* and `main()` in a bare-metal embedded system.
+This series is a comprehensive journey into the **ARM Cortex-M3** architecture. The core philosophy is **Zero Abstraction**: no HAL, no Standard Peripheral Libraries, and no CMSIS wrappers where possible. Every project is implemented by manipulating memory-mapped registers directly using the hardware reference manual.
 
-This phase does **not** use:
-- HAL
-- CMSIS
-- Arduino
-- Any OS or framework
-
-This phase teaches **how the machine actually boots and runs your code**.
+## 🛠 The Engineering Stack
+* **Target:** STM32F1 (ARM Cortex-M3 Core)
+* **IDE:** Keil µVision 5
+* **Compiler:** ARMCC (Version 5/6)
+* **Documentation:** STM32F10xxx Reference Manual (RM0008)
 
 ---
 
-## What You Will Learn
+## 🗺 Project Roadmap
 
-By the end of this phase, you will understand:
+### 🧱 LEVEL 1 — Absolute Basics (Board Bring-up)
+1.  **Minimal Boot Project:** Startup code and memory map layout without CMSIS.
+2.  **Blink LED:** Direct manipulation of `RCC_APB2ENR`, `GPIOC_CRH`, and `GPIOC_ODR`.
+3.  **GPIO Input:** Reading button states via the `IDR` register.
+4.  **Bit-Banding/Masking:** Implementing surgical bit control for atomic-like GPIO access.
+5.  **External Interrupt (EXTI):** Mapping GPIO to the interrupt controller via `AFIO_EXTICR`.
+6.  **SysTick Delay:** Utilizing the Cortex-M core timer for precise software blocking.
+7.  **General Purpose Timer (TIM) Delay:** Configuring `PSC` and `ARR` for hardware-based timing.
+8.  **PWM Output:** Hardware-automated signal generation for LEDs/Motors.
+9.  **Millisecond Tick System:** Establishing a global timebase for system services.
 
-- What bare-metal programming truly means
-- How a microcontroller is structured internally
-- How the build toolchain works
-- What ELF / HEX / BIN files really are
-- How memory is organized and why it matters
-- What a linker script does
-- What startup code does
-- How the CPU reaches `main()`
+### 🔌 LEVEL 2 — Communication Peripherals
+10. **UART TX (Polling):** Calculating baud rates and managing the `USART_SR` status flags.
+11. **UART TX/RX (Polling):** Full-duplex manual data exchange.
+12. **UART Interrupt Driver:** Asynchronous communication using RXNE/TXE interrupts.
+13. **SPI Master (Polling):** Synchronous data transfer for high-speed peripherals.
+14. **SPI Master (Interrupt):** Offloading SPI management to the interrupt controller.
+15. **I2C Master (Polling):** Implementing Start/Address/Ack/Stop sequences manually.
+16. **I2C Master (Interrupt):** State-machine driven I2C communication.
+17. **Mini Printf:** Developing a custom `printf` implementation over UART.
 
----
+### ⚡ LEVEL 3 — Data Movement & Performance
+18. **ADC Single Conversion:** Reading analog voltages using the `ADC_CR2` trigger.
+19. **ADC Continuous + Timer:** Automating sampling with hardware timer triggers.
+20. **DMA Memory-to-Peripheral:** Moving data arrays to peripherals with 0% CPU load.
+21. **DMA Peripheral-to-Memory:** Streamlining ADC data collection via DMA.
+22. **Zero-CPU UART:** Fully automated UART transmission using DMA channels.
 
-## 1. What is Bare-Metal Programming?
+### 🧠 LEVEL 4 — System & Reliability
+23. **Independent Watchdog (IWDG):** System recovery from hardware/software hangs.
+24. **Window Watchdog (WWDG):** Precise software execution timing enforcement.
+25. **RTC Timekeeping:** Managing the Real-Time Clock for calendar functions.
+26. **Low-Power Modes:** Implementing Sleep, Stop, and Standby for battery efficiency.
+27. **Reset Cause Detection:** Identifying why the system restarted (POR/WWDG/IWDG).
 
-**Bare-metal programming means running your code directly on the hardware without any operating system, runtime, or hardware abstraction layer.**
-
-Your code:
-- Talks directly to hardware registers
-- Controls memory layout
-- Controls startup sequence
-- Controls interrupts
-- Owns the entire machine
-
-No Linux.  
-No Arduino.  
-No HAL.  
-No RTOS.
-
-Only:
-- CPU
-- Flash
-- RAM
-- Your code
-
-### Bare-metal vs OS-based System
-
-| Feature | Bare-metal | OS-based |
-|--------|------------|-----------|
-| Boot time | Instant | Slow |
-| Memory | Fully controlled | Virtualized |
-| Determinism | 100% | Not guaranteed |
-| Power usage | Minimal | Higher |
-| Hardware access | Direct | Indirect |
+### 🧩 LEVEL 5 — Professional-Level
+28. **Custom Bootloader:** Creating a resident program to manage application jumps.
+29. **Firmware Update (UART):** Over-the-air (OTA) style updates via serial link.
+30. **Driver Framework:** Organizing register-level code into reusable, professional drivers.
 
 ---
 
-## 2. Inside a Microcontroller
-
-A typical microcontroller contains:
-
-- CPU core (e.g., ARM Cortex-M)
-- Flash memory (program storage)
-- RAM (stack, heap, variables)
-- Peripherals (GPIO, UART, SPI, I2C, Timers, etc.)
-- Bus system (AHB, APB, etc.)
-
-### Harvard Architecture
-
-- Instruction bus fetches from Flash
-- Data bus accesses RAM and peripherals
-
-### Memory-Mapped I/O
-
-Peripherals are accessed through memory addresses:
-
-```c
-#define GPIOA_ODR (*(volatile unsigned int*)0x4001080C)
-````
-
-Writing to this address writes directly to hardware.
+## 📜 Principles of the Series
+* **Manual Clock Gating:** Every peripheral starts "dead." We enable them bit-by-bit in the `RCC`.
+* **Interrupt Hygiene:** Manual management of Pending (`PR`) and Status (`SR`) registers is mandatory.
+* **Data Sheet First:** Every line of code is cross-referenced with the **RM0008 Reference Manual**.
+* **Efficiency:** Optimizing for code size and CPU cycles by removing overhead.
 
 ---
-
-## 3. The Build Toolchain Explained
-
-### What actually happens when you build?
-
-```
-main.c     → compiler   → main.o
-startup.s  → assembler  → startup.o
-linker     → firmware.elf
-objcopy    → firmware.bin / firmware.hex
-```
-
-### Important Tools
-
-* `arm-none-eabi-gcc` → Compiler
-* `arm-none-eabi-ld` → Linker
-* `arm-none-eabi-objcopy` → Format conversion
-* `arm-none-eabi-objdump` → Disassembly and inspection
-
----
-
-## 4. ELF vs HEX vs BIN
-
-| Format | Contains                            | Used for  |
-| ------ | ----------------------------------- | --------- |
-| ELF    | Full program + symbols + debug info | Debugging |
-| BIN    | Raw binary image                    | Flashing  |
-| HEX    | ASCII encoded binary                | Flashing  |
-
-### Conversion Commands
-
-```bash
-arm-none-eabi-objcopy -O binary firmware.elf firmware.bin
-arm-none-eabi-objcopy -O ihex   firmware.elf firmware.hex
-```
-
-> You **do not flash ELF**. You flash BIN or HEX.
-
----
-
-## 5. Memory Map of a Microcontroller
-
-Typical ARM Cortex-M memory map:
-
-```
-0x08000000 → Flash
-0x20000000 → RAM
-0x40000000 → Peripherals
-```
-
-### Why this matters
-
-Your program must be placed:
-
-* Code in Flash
-* Variables in RAM
-* Stack in RAM
-
-This is controlled by the **linker script**.
-
----
-
-## 6. The Linker Script (Critical Concept)
-
-### What is a linker script?
-
-The linker script tells the linker:
-
-* Where Flash is
-* Where RAM is
-* Where to place:
-
-  * Code (.text)
-  * Initialized data (.data)
-  * Uninitialized data (.bss)
-  * Stack and heap
-
-### Minimal Example
-
-```ld
-MEMORY
-{
-  FLASH (rx) : ORIGIN = 0x08000000, LENGTH = 128K
-  RAM (rwx)  : ORIGIN = 0x20000000, LENGTH = 20K
-}
-
-SECTIONS
-{
-  .text : {
-    *(.isr_vector)
-    *(.text*)
-  } > FLASH
-
-  .data : { *(.data*) } > RAM
-  .bss  : { *(.bss*)  } > RAM
-}
-```
-
-> Without a linker script, your program does not know where to live in memory.
-
----
-
-## 7. Startup Code
-
-### What happens on reset?
-
-When the CPU resets:
-
-1. It loads Stack Pointer from address `0x00000000`
-2. It loads Program Counter from address `0x00000004`
-3. It jumps to the reset handler
-
-### Startup code must:
-
-* Set up stack pointer
-* Copy `.data` from Flash to RAM
-* Zero `.bss`
-* Call `main()`
-
-### Minimal Vector Table Example
-
-```c
-__attribute__((section(".isr_vector")))
-void (*vectors[])(void) = {
-    (void*)0x20005000,  // Initial stack pointer
-    Reset_Handler
-};
-```
-
----
-
-## 8. From Power-On to `main()`
-
-### Complete Boot Sequence
-
-1. Power is applied
-2. CPU reads:
-
-   * SP from address `0x00000000`
-   * PC from address `0x00000004`
-3. CPU jumps to `Reset_Handler`
-4. Startup code:
-
-   * Initializes RAM
-   * Sets up stack
-5. Calls `main()`
-6. Your program starts running
-
-> **Important:** `main()` is not the beginning of the program.
-> It is just another function called by startup code.
-
----
-
-## What You Should Understand After Phase 0
-
-* How firmware is built
-* Why linker scripts exist
-* Why startup code exists
-* How the CPU boots
-* How memory layout works
-* What ELF / BIN / HEX really are
-
----
-
-## What Comes Next (Phase 1)
-
-In Phase 1, we will:
-
-* Write a minimal bare-metal program
-* Build without any library or HAL
-* Blink an LED using raw registers
-* Touch hardware for the first time
-
----
-
-## Philosophy of This Series
-
-> Most tutorials teach you **how to use APIs**.
-> This series teaches you **how the machine actually works**.
-
----
+*Developed as a rigorous study of embedded systems engineering.*
 
 **Author:** Mohamed Ishauq
 **Series:** The Absolute Bare-Metal Series
